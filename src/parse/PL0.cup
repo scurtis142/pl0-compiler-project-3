@@ -151,10 +151,13 @@ non terminal                  VarDeclSeq,
                               VarDecl;
 non terminal DeclNode.ProcedureNode  ProcedureDef;
 non terminal SymEntry.ProcedureEntry ProcedureHead;
-non terminal 
-                              FormalParamList;
-non terminal
-                              ActualParamList;
+
+non terminal List<SymEntry.ParamEntry>    FormalParamList;
+non terminal SymEntry.ParamEntry FormalParam;
+non terminal List<ExpNode>    ActualParamList;
+non terminal ExpNode          ActualParam;
+
+non terminal List<ExpNode>    ElementList;
 non terminal List<StatementNode> StatementList;
 non terminal StatementNode    Statement,
                               CompoundStatement;
@@ -328,6 +331,10 @@ Type ::= TypeIdentifier:type
         {:
             RESULT = new Type.SubrangeType(subrxleft, lo, hi);
         :}
+    | KW_SETOF Type:type
+        {:
+            RESULT = new Type.SetType(typexleft, type);
+        :}
     | error:err
         {:
             RESULT = Type.ERROR_TYPE;
@@ -371,8 +378,10 @@ ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
             LPAREN FormalParamList:pl 
             RPAREN
         {:
+
             /* Add an entry for the procedure to the current scope */
             SymEntry.ProcedureEntry procEntry = currentScope.addProcedure(id, idxleft);
+
             if(procEntry == null) {
                 errors.error(id + " already declared in this scope", idxleft);
                 /* Create a dummy symbol table entry.
@@ -382,9 +391,39 @@ ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
                 procEntry = new SymEntry.ProcedureEntry(id, idxleft);
                 procEntry.setScope(currentScope);
             }
+
+            /* Set the type of the procedure entry */
+            procEntry.getType().setFormalParams(pl);
+
+            /* If the above code does not set the type correctly then remove and uncomment this
+            // Creating the procedure type
+            Type.ProcedureType type = new Type.ProcedureType(plxleft);
+            type.setFormalParams(pl);
+            SymEntry.ProcedureEntry procEntry = new SymEntry.ProcedureEntry(id, idxleft, type);
+            procEntry = (SymEntry.ProcedureEntry) addEntry(procEntry)
+            */
+
+
             /* Create a new scope for the symbols local to
              * the procedure. */
             currentScope = currentScope.newScope(procEntry);
+
+            /* Adding formal parameters to scope. (Need to do this here to check duplicate names during parsing)
+            * Also have to do it after the new scope has been created */
+            for(SymEntry.ParamEntry param : pl) {
+               Type.ReferenceType paramType;
+               if(param.isRef()) {
+                   //paramType = new Type.ReferenceType(param.getType());
+                   paramType = param.getType();
+               } else {
+                   paramType = param.getType();
+               }
+               if(currentScope.addVariable(param.getIdent(), param.getLocation(), paramType) == null) {
+                    /* Im not actually sure if we will ever get here as we already check duplicate params in the FormalParamList parser */
+                   errors.error(param.getIdent()+ " already declared in this scope", param.getLocation());
+               }
+            }
+
             RESULT = procEntry;
         :}
     |  KW_PROCEDURE IDENTIFIER:id error
@@ -403,8 +442,45 @@ ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
 
 
 /* To allow for the addition of procedure parameters. */
-FormalParamList ::= /* empty */
+FormalParamList ::= FormalParam:fp
+        {:
+            RESULT = new ArrayList<SymEntry.ParamEntry>();
+            RESULT.add(fp);
+        :}
+    | FormalParamList:fps COMMA FormalParam:fp
+        {:
+            boolean notAdded = true;
+            for(SymEntry.ParamEntry x : fps) {
+                if(fp.getIdent().equals(x.getIdent())) {
+                    errors.error(fp.getIdent() + " repeated", fp.getLocation());
+                    notAdded = false;
+                }
+            }
+            if(notAdded) {
+                fps.add(fp);
+            }
+            RESULT = fps;
+        :}
+    | /* empty */
+        {:
+            RESULT = new ArrayList<SymEntry.ParamEntry>();
+        :}
+    | FormalParamList:fps error:err
+        {:
+            RESULT = fps;
+        :}
     ;
+
+FormalParam ::= IDENTIFIER:id COLON TypeIdentifier:type
+        {:
+            RESULT = new SymEntry.ParamEntry(id, idxleft, type, false);
+        :}
+    | KW_VAR IDENTIFIER:id COLON TypeIdentifier:type
+        {:
+            RESULT = new SymEntry.ParamEntry(id, idxleft, type, true);
+        :}
+    ;
+
 CompoundStatement ::= KW_BEGIN StatementList:sl KW_END
         {:
             RESULT = new StatementNode.ListNode(slxleft,sl);
@@ -448,8 +524,8 @@ Statement ::= KW_WHILE Condition:c KW_DO Statement:s
           RESULT = new StatementNode.AssignmentNode(lvalxleft, lval, rval);
        :} 
     |  KW_CALL IDENTIFIER:id LPAREN ActualParamList:pl RPAREN
-        {: 
-            RESULT = new StatementNode.CallNode(idxleft, id);
+        {:
+            RESULT = new StatementNode.CallNode(idxleft, id, pl);
         :}
     |  error:loc
         {: 
@@ -458,7 +534,29 @@ Statement ::= KW_WHILE Condition:c KW_DO Statement:s
     ;
 
 
-ActualParamList ::= /* empty */
+ActualParamList ::= ActualParam:p
+        {:
+            RESULT = new ArrayList<ExpNode>();
+            RESULT.add(p);
+        :}
+    | ActualParamList:ps COMMA:c ActualParam:p
+        {:
+            if(ps.size() == 0) {
+                errors.error("PL0 syntax error", cxleft);       /* Note, write a test case to test "call p(a, ,true);" */
+            }
+            ps.add(p);
+            RESULT = ps;
+        :}
+    | /* Empty */
+        {:
+            RESULT = new ArrayList<ExpNode>();
+        :}
+    ;
+
+ActualParam ::= Condition:c
+        {:
+            RESULT = c;
+        :}
     ;
 
 LValue ::= IDENTIFIER:id
@@ -516,6 +614,10 @@ Relation ::= EQUALS
     |  GEQUALS
         {:
             RESULT = Operator.GEQUALS_OP;
+        :}
+    | COLON
+        {:
+            RESULT = Operator.IN_OP;
         :}
     ;
 /* Expressions are structured into Exp, Term, and Factor to encode the
@@ -582,10 +684,47 @@ Factor ::= PLUS Factor:e
         {:
             RESULT = lval;
         :}
+    | TypeIdentifier:type LCURLY ElementList:elems RCURLY
+        {:
+            // What to put here? variableNode??
+            RESULT = new ExpNode.ElementListNode(typexleft, type, elems);
+        :}
     ;
+
 UnaryOperator ::= MINUS
         {:
             RESULT = Operator.NEG_OP;
+        :}
+    | SET_COMPLEMENT
+        {:
+            RESULT = Operator.COMPLEMENT_OP;
+        :}
+    ;
+
+ElementList ::= Condition:c
+        {:
+            RESULT = new ArrayList<ExpNode>();
+            if(c instanceof ExpNode.ErrorNode) {
+                //errors.error("PL0 Syntax Error", cxleft);
+            } else {
+                RESULT.add(c);
+            }
+        :}
+    | ElementList:elems COMMA:comma Condition:c
+        {:
+            if(elems.size() == 0) {
+                errors.error("PL0 syntax error", commaxleft);
+            }
+            if(c instanceof ExpNode.ErrorNode) {
+                //errors.error("PL0 Syntax Error", cxleft);
+            } else {
+                elems.add(c);
+            }
+            RESULT = elems;
+        :}
+    | /* Empty */
+        {:
+            RESULT = new ArrayList<ExpNode>();
         :}
     ;
 

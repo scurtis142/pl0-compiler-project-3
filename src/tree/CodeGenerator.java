@@ -329,6 +329,14 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
                 code = genArgs(right, left);
                 code.generateOp(Operation.LESSEQ);
                 break;
+            case IN_OP:
+                // XXX TODO
+                code = new Code();
+                break;
+            case DIFFERENCE_OP:
+                // XXX TODO
+                code = new Code();
+                break;
             default:
                 errors.fatal("PL0 Internal error: Unknown operator",
                         node.getLocation());
@@ -346,6 +354,10 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         switch (node.getOp()) {
             case NEG_OP:
                 code.generateOp(Operation.NEGATE);
+                break;
+            case COMPLEMENT_OP:
+                // XXX TODO
+                code = new Code();
                 break;
             default:
                 errors.fatal("PL0 Internal error: Unknown operator",
@@ -413,6 +425,15 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
          */
         Code code = node.getExp().genCode(this);
         endGen("WidenSubrange");
+        return code;
+    }
+
+    @Override
+    public Code visitElementListNode(ExpNode.ElementListNode node) {
+        beginGen("ElementListNode");
+        Code code = new Code();
+        //XXX TODO
+        endGen("ElementListNode");
         return code;
     }
     //**************************** Support Methods

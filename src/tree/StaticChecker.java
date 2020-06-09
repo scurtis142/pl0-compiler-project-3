@@ -181,7 +181,42 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         SymEntry entry = currentScope.lookup(node.getId());
         if (entry instanceof SymEntry.ProcedureEntry) {
             SymEntry.ProcedureEntry procEntry = (SymEntry.ProcedureEntry) entry;
-            node.setEntry(procEntry);
+
+            // Check number of actual parameters equals number of formal parameters
+            List<ExpNode> actualParams = node.getActualParams();
+            List<SymEntry.ParamEntry> formalParams = procEntry.getType().getFormalParams();
+            if(actualParams.size() == formalParams.size()) {
+                // Check parameter types
+                // Types should interpreted in the outer/declaration/(parent ?) scope
+                for(int i = 0; i < actualParams.size(); i++) {
+
+                    // Visit each of the actual parameters
+                    actualParams.set(i, actualParams.get(i).transform(this));
+
+                    // Reference param type T -> exp must be type ref(T)
+                    if(formalParams.get(i).isRef()) {
+                        if(!actualParams.get(i).getType().equals(formalParams.get(i).getType())) {
+                            staticError("type should be " + formalParams.get(i).getType().toString() +
+                                    " not " + actualParams.get(i).getType().toString(), actualParams.get(i).getLocation());
+                        }
+                    } else {
+                        // Value param type T -> exp must be assignment compatible to T
+                        actualParams.set(i, formalParams.get(i).getType().getBaseType().coerceExp(actualParams.get(i)));
+                        //if(actualParams.get(i) instanceof ExpNode.ErrorNode){
+                        //    staticError("cannot coerce " + actualParams.get(i).getType() + " to " +
+                        //            formalParams.get(i).getType().getBaseType(), actualParams.get(i).getLocation());
+                        //}
+                    }
+                }
+
+                node.setEntry(procEntry);
+                node.setActualParams(actualParams); /* Do we actually need this. Would modifying the referance from the getParams suffice? */
+            } else {
+                staticError("wrong number of parameters", node.getLocation());
+                for(ExpNode param : actualParams){
+                    System.out.println("actual param type is " + param.getType().toString());
+                }
+            }
         } else {
             staticError("Procedure identifier required", node.getLocation());
         }
@@ -483,6 +518,38 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         beginCheck("WidenSubrange");
         // Nothing to do.
         endCheck("WidenSubrange");
+        return node;
+    }
+
+    @Override
+    public ExpNode visitElementListNode(ExpNode.ElementListNode node) {
+        beginCheck("ElementListNode");
+        Type.SubrangeType elementType;
+
+        node.setType(node.getType().resolveType());
+
+        // Identifier must be a set type
+        if(node.getType() instanceof Type.SetType) {
+
+            // Base type must be a subrange type
+            if(((Type.SetType) node.getType()).getElementType() instanceof Type.SubrangeType) {
+                elementType = (Type.SubrangeType)((Type.SetType) node.getType()).getElementType();
+
+                // Each element must be assignment compatible with the base type
+                List<ExpNode> elements = node.getElements();
+                for(int i = 0; i < elements.size(); i++) {
+                    elements.get(i).transform(this);
+                    elements.set(i, elementType.coerceExp(elements.get(i)));
+                }
+                node.setElements(elements);
+            } else {
+                staticError("base type must be a subrange type", node.getLocation());
+            }
+        } else {
+            staticError("type must be a set type", node.getLocation());
+        }
+
+        endCheck("ElementListNode");
         return node;
     }
 

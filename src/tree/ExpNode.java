@@ -129,6 +129,51 @@ public abstract class ExpNode {
     }
 
     /**
+     * Tree node representing a formal parameter
+     */
+    public static class ElementListNode extends ExpNode {
+
+        // Type is already in superclass
+        private List<ExpNode> elements;
+
+        public ElementListNode(Location loc, Type type, List<ExpNode> elems) {
+            super(loc, type);
+            this.type = type;
+            this.elements = elems;
+        }
+
+        public List<ExpNode> getElements() {
+            return elements;
+        }
+
+        public void setElements(List<ExpNode> elements) { this.elements = elements; }
+
+        @Override
+        public ExpNode transform(ExpTransform<ExpNode> visitor) {
+            return visitor.visitElementListNode(this);
+        }
+
+        @Override
+        public Code genCode(ExpTransform<Code> visitor) {
+            return visitor.visitElementListNode(this);
+        }
+
+        @Override
+        public String toString() {
+            String string = this.type.toString() + "{";
+            if(elements == null){
+                System.out.println("elemenst is null");
+            }
+            for(ExpNode exp : elements) {
+                /* There will be an extra comma at the end but its not important */
+                string += exp.toString() + ",";
+            }
+            return string;
+        }
+
+    }
+
+    /**
      * Identifier node is used until the identifier can be resolved
      * to be either a constant or a variable during the static
      * semantics checking phase.

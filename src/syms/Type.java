@@ -2,6 +2,7 @@ package syms;
 
 import java.util.*;
 
+import machine.Operation;
 import source.ErrorHandler;
 import source.Errors;
 import java_cup.runtime.ComplexSymbolFactory.Location;
@@ -1224,6 +1225,32 @@ public abstract class Type {
             }
             resolved = true;
             return this;
+        }
+
+        @Override
+        public void addOperators(Scope scope) {
+            Type.ProductType argTypes =
+                    new Type.ProductType(this, this);
+            Type.FunctionType relOpType =
+                    new Type.FunctionType(argTypes, Predefined.BOOLEAN_TYPE);
+            scope.addOperator(Operator.EQUALS_OP, loc, relOpType);
+            scope.addOperator(Operator.NEQUALS_OP, loc, relOpType);
+
+            Type.FunctionType setOpType =
+                    new FunctionType(argTypes, this);
+            scope.addOperator(Operator.ADD_OP, loc, setOpType);
+            scope.addOperator(Operator.MUL_OP, loc, setOpType);
+            scope.addOperator(Operator.DIFFERENCE_OP, loc, setOpType);
+
+            Type.FunctionType unarySetOpType =
+                    new Type.FunctionType(this, this);
+            scope.addOperator(Operator.COMPLEMENT_OP, loc, unarySetOpType);
+
+            Type.ProductType inArgType =
+                    new Type.ProductType(elementType, this);
+            Type.FunctionType inOpType =
+                    new Type.FunctionType(inArgType, Predefined.BOOLEAN_TYPE);
+            scope.addOperator(Operator.IN_OP, loc, inOpType);
         }
 
         @Override
