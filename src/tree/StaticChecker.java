@@ -213,9 +213,6 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
                 node.setActualParams(actualParams); /* Do we actually need this. Would modifying the referance from the getParams suffice? */
             } else {
                 staticError("wrong number of parameters", node.getLocation());
-                for(ExpNode param : actualParams){
-                    System.out.println("actual param type is " + param.getType().toString());
-                }
             }
         } else {
             staticError("Procedure identifier required", node.getLocation());
@@ -538,7 +535,7 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
                 // Each element must be assignment compatible with the base type
                 List<ExpNode> elements = node.getElements();
                 for(int i = 0; i < elements.size(); i++) {
-                    elements.get(i).transform(this);
+                    elements.set(i, elements.get(i).transform(this));
                     elements.set(i, elementType.coerceExp(elements.get(i)));
                 }
                 node.setElements(elements);

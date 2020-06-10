@@ -1247,7 +1247,7 @@ public abstract class Type {
             scope.addOperator(Operator.COMPLEMENT_OP, loc, unarySetOpType);
 
             Type.ProductType inArgType =
-                    new Type.ProductType(elementType, this);
+                    new Type.ProductType(elementType.optWidenSubrange(), this);
             Type.FunctionType inOpType =
                     new Type.FunctionType(inArgType, Predefined.BOOLEAN_TYPE);
             scope.addOperator(Operator.IN_OP, loc, inOpType);

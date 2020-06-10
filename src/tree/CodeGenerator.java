@@ -287,7 +287,11 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         switch (node.getOp()) {
             case ADD_OP:
                 code = genArgs(left, right);
-                code.generateOp(Operation.ADD);
+                if(node.getLeft().getType() instanceof Type.SetType) {
+                    code.generateOp(Operation.OR);
+                } else {
+                    code.generateOp(Operation.ADD);
+                }
                 break;
             case SUB_OP:
                 code = genArgs(left, right);
@@ -296,7 +300,11 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
                 break;
             case MUL_OP:
                 code = genArgs(left, right);
-                code.generateOp(Operation.MPY);
+                if(node.getLeft().getType() instanceof Type.SetType){
+                    code.generateOp(Operation.AND);
+                } else {
+                    code.generateOp(Operation.MPY);
+                }
                 break;
             case DIV_OP:
                 code = genArgs(left, right);
@@ -330,12 +338,50 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
                 code.generateOp(Operation.LESSEQ);
                 break;
             case IN_OP:
-                // XXX TODO
+                int lowerBound = ((Type.SubrangeType)(right.getType().getSetType().getElementType())).getLower();
+                int upperBound = ((Type.SubrangeType)(right.getType().getSetType().getElementType())).getUpper();
+
+                // Checking whether it is inside the subrange
+                Code rangeCheckCode = left.genCode(this);
+                rangeCheckCode.genLoadConstant(lowerBound);
+                rangeCheckCode.generateOp(Operation.LESS);
+                rangeCheckCode.genLoadConstant(upperBound);
+                rangeCheckCode.append(left.genCode(this));
+                rangeCheckCode.generateOp(Operation.LESS);
+                rangeCheckCode.generateOp(Operation.OR);
+
+                // Shifting to correct place
+                Code isElementCode = new Code();
+                isElementCode.genComment("IN_OP");
+                isElementCode.generateOp(Operation.ONE);
+                isElementCode.append(left.genCode(this));
+                isElementCode.genLoadConstant(lowerBound);
+                isElementCode.generateOp(Operation.NEGATE);
+                isElementCode.generateOp(Operation.ADD);
+                isElementCode.generateOp(Operation.SHIFT_LEFT);
+
+                // Anding with set
+                isElementCode.append(right.genCode(this));
+                isElementCode.generateOp(Operation.AND);
+
+                // Test if equal to zero
+                isElementCode.generateOp(Operation.ZERO);
+                isElementCode.generateOp(Operation.EQUAL);
+                isElementCode.genBoolNot();
+
+                Code outOfRangeCode = new Code();
+                outOfRangeCode.generateOp(Operation.ZERO);
+
                 code = new Code();
+                code.genIfThenElse(rangeCheckCode, outOfRangeCode, isElementCode);
+
                 break;
             case DIFFERENCE_OP:
-                // XXX TODO
-                code = new Code();
+                code = genArgs(left, right);
+                code.generateOp(Operation.AND);
+                code.generateOp(Operation.NOT);
+                code.append(left.genCode(this));
+                code.generateOp(Operation.AND);
                 break;
             default:
                 errors.fatal("PL0 Internal error: Unknown operator",
@@ -356,8 +402,7 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
                 code.generateOp(Operation.NEGATE);
                 break;
             case COMPLEMENT_OP:
-                // XXX TODO
-                code = new Code();
+                code.generateOp(Operation.NOT);
                 break;
             default:
                 errors.fatal("PL0 Internal error: Unknown operator",
@@ -432,7 +477,25 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
     public Code visitElementListNode(ExpNode.ElementListNode node) {
         beginGen("ElementListNode");
         Code code = new Code();
-        //XXX TODO
+        code.genComment("ElementList");
+
+        // Need set lower bound to generate shift count
+        int lowerBound = ((Type.SubrangeType)(node.getType().getSetType().getElementType())).getLower();
+
+        // Initialise the word to 0
+        code.generateOp(Operation.ZERO);
+
+        // Evaluate each expression in the element list and shift into the word
+        for(ExpNode element : node.getElements()) {
+            code.generateOp(Operation.ONE);
+            code.append(element.genCode(this));
+            code.genLoadConstant(lowerBound);
+            code.generateOp(Operation.NEGATE);
+            code.generateOp(Operation.ADD);
+            code.generateOp(Operation.SHIFT_LEFT);
+            code.generateOp(Operation.OR);
+        }
+
         endGen("ElementListNode");
         return code;
     }

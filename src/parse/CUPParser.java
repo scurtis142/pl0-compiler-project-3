@@ -1229,7 +1229,6 @@ class CUP$CUPParser$actions {
 		Location plxright = ((java_cup.runtime.ComplexSymbolFactory.ComplexSymbol)CUP$CUPParser$stack.elementAt(CUP$CUPParser$top-1)).xright;
 		List<ExpNode> pl = (List<ExpNode>)((java_cup.runtime.Symbol) CUP$CUPParser$stack.elementAt(CUP$CUPParser$top-1)).value;
 		
-            System.out.println("pl size = " + pl.size());
             RESULT = new StatementNode.CallNode(idxleft, id, pl);
         
               CUP$CUPParser$result = parser.getSymbolFactory().newSymbol("Statement",21, ((java_cup.runtime.Symbol)CUP$CUPParser$stack.elementAt(CUP$CUPParser$top-4)), ((java_cup.runtime.Symbol)CUP$CUPParser$stack.peek()), RESULT);
