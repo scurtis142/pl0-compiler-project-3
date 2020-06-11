@@ -77,8 +77,9 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
         localScope.resolveScope();
         // Need to generate the negative offsets
         for(int i = formalParams.size() - 1; i >= 0; i--) {
-            formalParams.get(i).setOffset(-1 - i);
-            //formalParams.get(i).resolve();
+            int preOffset = procEntry.getLocalScope().allocParameterSpace(formalParams.get(i).getSpace());
+            int finalOffset = (0-preOffset) - (formalParams.size() + 1);
+            formalParams.get(i).setOffset(finalOffset); // -1 - i
         }
         // Enter the local scope of the procedure
         currentScope = localScope;

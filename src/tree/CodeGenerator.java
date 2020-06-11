@@ -178,12 +178,9 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         // Evaluate actual parameters in reverse order and leave on top of stack
         code.genComment("loading parameters:");
         for(int i = formalParams.size() - 1; i >= 0; i--) {
+            code.append(actualParams.get(i).genCode(this));
             if(formalParams.get(i).isRef()) {
-                //SymEntry.VarEntry var = node.getVariable();
-                //code.genMemRef(staticLevel - var.getLevel(), var.getOffset());
-                //code.genMemRef(staticLevel - formalParams.get(i).getLevel(), formalParams.get(i).getOffset());
-            } else {
-                code.append(actualParams.get(i).genCode(this));
+                code.generateOp(Operation.TO_GLOBAL);
             }
         }
 
@@ -193,6 +190,11 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
          * at load time.
          */
         code.genCall(staticLevel - proc.getLevel(), proc);
+
+        // Need to deallocate the parameters from the runtime stack
+        code.genComment("deallocating parameters");
+        code.genDeallocStack(proc.getLocalScope().getParameterSpace());
+
         endGen("Call");
         return code;
     }
@@ -458,6 +460,12 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         SymEntry.VarEntry var = node.getVariable();
         Code code = new Code();
         code.genMemRef(staticLevel - var.getLevel(), var.getOffset());
+        if(var instanceof SymEntry.ParamEntry) {
+            if (((SymEntry.ParamEntry) var).isRef()) {
+                code.generateOp(Operation.LOAD_FRAME);
+                code.generateOp(Operation.TO_LOCAL);
+            }
+        }
         endGen("Variable");
         return code;
     }
