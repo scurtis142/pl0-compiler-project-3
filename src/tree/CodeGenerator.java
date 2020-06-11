@@ -395,8 +395,7 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
                 break;
             case DIFFERENCE_OP:
                 code = genArgs(left, right);
-                code.generateOp(Operation.AND);
-                code.generateOp(Operation.NOT);
+                code.generateOp(Operation.XOR);
                 code.append(left.genCode(this));
                 code.generateOp(Operation.AND);
                 break;
