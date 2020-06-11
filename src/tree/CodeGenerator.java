@@ -192,7 +192,7 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
         code.genCall(staticLevel - proc.getLevel(), proc);
 
         // Need to deallocate the parameters from the runtime stack
-        code.genComment("deallocating parameters");
+        code.genComment("deallocate parameters");
         code.genDeallocStack(proc.getLocalScope().getParameterSpace());
 
         endGen("Call");
@@ -369,7 +369,6 @@ public class CodeGenerator implements DeclVisitor, StatementTransform<Code>,
 
                 // Shifting to correct place
                 Code isElementCode = new Code();
-                isElementCode.genComment("IN_OP");
                 isElementCode.generateOp(Operation.ONE);
                 isElementCode.append(left.genCode(this));
                 isElementCode.genLoadConstant(lowerBound);
