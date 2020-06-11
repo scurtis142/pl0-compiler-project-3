@@ -67,12 +67,19 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
     public void visitProcedureNode(DeclNode.ProcedureNode node) {
         beginCheck("Procedure");
         SymEntry.ProcedureEntry procEntry = node.getProcEntry();
+        List<SymEntry.ParamEntry> formalParams = procEntry.getType().getFormalParams();
+
         // Save the block's abstract syntax tree in the procedure entry
         procEntry.setBlock(node.getBlock());
         // The local scope is that for the procedure.
         Scope localScope = procEntry.getLocalScope();
         /* Resolve all references to identifiers within the declarations. */
         localScope.resolveScope();
+        // Need to generate the negative offsets
+        for(int i = formalParams.size() - 1; i >= 0; i--) {
+            formalParams.get(i).setOffset(-1 - i);
+            //formalParams.get(i).resolve();
+        }
         // Enter the local scope of the procedure
         currentScope = localScope;
         // Check the block of the procedure.
@@ -202,10 +209,6 @@ public class StaticChecker implements DeclVisitor, StatementVisitor,
                     } else {
                         // Value param type T -> exp must be assignment compatible to T
                         actualParams.set(i, formalParams.get(i).getType().getBaseType().coerceExp(actualParams.get(i)));
-                        //if(actualParams.get(i) instanceof ExpNode.ErrorNode){
-                        //    staticError("cannot coerce " + actualParams.get(i).getType() + " to " +
-                        //            formalParams.get(i).getType().getBaseType(), actualParams.get(i).getLocation());
-                        //}
                     }
                 }
 

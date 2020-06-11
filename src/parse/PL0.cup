@@ -411,17 +411,14 @@ ProcedureHead ::= KW_PROCEDURE IDENTIFIER:id
             /* Adding formal parameters to scope. (Need to do this here to check duplicate names during parsing)
             * Also have to do it after the new scope has been created */
             for(SymEntry.ParamEntry param : pl) {
-               Type.ReferenceType paramType;
-               if(param.isRef()) {
-                   //paramType = new Type.ReferenceType(param.getType());
-                   paramType = param.getType();
-               } else {
-                   paramType = param.getType();
-               }
-               if(currentScope.addVariable(param.getIdent(), param.getLocation(), paramType) == null) {
-                    /* Im not actually sure if we will ever get here as we already check duplicate params in the FormalParamList parser */
-                   errors.error(param.getIdent()+ " already declared in this scope", param.getLocation());
-               }
+                Type.ReferenceType paramType;
+                if(param.isRef()) {
+                    //paramType = new Type.ReferenceType(param.getType());
+                    paramType = param.getType();
+                } else {
+                    paramType = param.getType();
+                }
+                currentScope.addEntry(param);
             }
 
             RESULT = procEntry;
